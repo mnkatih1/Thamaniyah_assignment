@@ -1,9 +1,15 @@
-FROM python:3.9-slim-buster
+FROM python:3.11-slim
+
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+
+# Install Flask
+RUN pip install --no-cache-dir flask==2.3.3
+
+# Copy app
 COPY app.py .
+
+# Expose port
 EXPOSE 5001
+
+# Run app
 CMD ["python", "app.py"]
-
-

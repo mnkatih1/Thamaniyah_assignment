@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   postgres:
     image: postgres:13
@@ -11,6 +10,11 @@ services:
       - "5432:5432"
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    command: >
+      postgres
+      -c wal_level=logical
+      -c max_wal_senders=10
+      -c max_replication_slots=10
 
   redis:
     image: redis:6.2
@@ -24,6 +28,7 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+      KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=ruok,stat,srvr,mntr"
 
   kafka:
     image: confluentinc/cp-kafka:7.0.1
@@ -41,23 +46,42 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
 
-  flink-jobmanager:
-    image: flink:1.14.4-scala_2.12
-    container_name: flink-jobmanager
-    ports:
-      - "8081:8081"
-    command: jobmanager
-    environment:
-      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
-
-  flink-taskmanager:
-    image: flink:1.14.4-scala_2.12
-    container_name: flink-taskmanager
+  kafka-connect:
+    image: confluentinc/cp-kafka-connect:7.0.1
+    container_name: kafka-connect
     depends_on:
-      - flink-jobmanager
-    command: taskmanager
+      - kafka
+      - postgres
+    ports:
+      - "8083:8083"
     environment:
-      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+      CONNECT_BOOTSTRAP_SERVERS: 'kafka:29092'
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
+      CONNECT_GROUP_ID: connect-cluster-group
+      CONNECT_CONFIG_STORAGE_TOPIC: connect-configs
+      CONNECT_OFFSET_STORAGE_TOPIC: connect-offsets
+      CONNECT_STATUS_STORAGE_TOPIC: connect-status
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_KEY_CONVERTER_SCHEMAS_ENABLE: 'false'
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: 'false'
+      CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_INTERNAL_KEY_CONVERTER_SCHEMAS_ENABLE: 'false'
+      CONNECT_INTERNAL_VALUE_CONVERTER_SCHEMAS_ENABLE: 'false'
+      CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components
+      CONNECT_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      CONNECT_PRODUCER_INTERCEPTOR_CLASSES: "io.confluent.monitoring.clients.interceptor.MonitoringProducerInterceptor"
+      CONNECT_CONSUMER_INTERCEPTOR_CLASSES: "io.confluent.monitoring.clients.interceptor.MonitoringConsumerInterceptor"
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: '1'
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: '1'
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: '1'
+    command: 
+      - bash
+      - -c
+      - |
+        confluent-hub install --no-prompt debezium/debezium-connector-postgresql:1.9.7 && \
+        /etc/confluent/docker/run
 
   external-system:
     build: ./external_system
@@ -65,4 +89,66 @@ services:
     ports:
       - "5001:5001"
 
+  data-generator:
+    image: python:3.11-slim
+    container_name: data-generator
+    depends_on:
+      - postgres
+    working_dir: /app
+    volumes:
+      - ./:/app
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: streaming_db
+      DB_USER: user
+      DB_PASSWORD: password
+      PYTHONUNBUFFERED: "1"
+    command: >
+      bash -c "
+        apt-get update && apt-get install -y postgresql-client &&
+        until pg_isready -h postgres -p 5432 -U user; do echo 'waiting for postgres'; sleep 2; done &&
+        pip install --no-cache-dir psycopg2-binary &&
+        python data_generator.py
+      "
 
+  # REMPLACÉ: flink-py par stream-processor (Python simple)
+  stream-processor:
+    build:
+      context: ./stream_processor
+      dockerfile: Dockerfile
+    container_name: stream-processor
+    depends_on:
+      - kafka
+      - postgres
+      - redis
+      - kafka-connect
+    environment:
+      BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_TOPIC: pg.public.engagement_events
+      PG_HOST: postgres
+      PG_DB: streaming_db
+      PG_USER: user          
+      PG_PASSWORD: password 
+      REDIS_HOST: redis
+      EXTERNAL_URL: http://external-system:5001/webhook
+    restart: on-failure
+
+  # Service pour configurer automatiquement Debezium
+  setup-debezium:
+    image: curlimages/curl:latest
+    container_name: setup-debezium
+    depends_on:
+      - kafka-connect
+      - postgres
+    volumes:
+      - ./scripts:/scripts
+      - ./connectors:/connectors
+    working_dir: /
+    command: >
+      sh -c "
+        apk add --no-cache jq bash &&
+        chmod +x /scripts/setup_debezium.sh &&
+        /scripts/setup_debezium.sh
+      "
+    restart: "no"
