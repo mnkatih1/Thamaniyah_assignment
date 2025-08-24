@@ -125,7 +125,7 @@ services:
       - kafka-connect
     environment:
       BOOTSTRAP_SERVERS: kafka:29092
-      KAFKA_TOPIC: pg.public.engagement_events
+      KAFKA_TOPIC: pgmain.public.engagement_events
       PG_HOST: postgres
       PG_DB: streaming_db
       PG_USER: user          
