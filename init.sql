@@ -36,7 +36,7 @@ CREATE INDEX IF NOT EXISTS idx_events_content_id ON public.engagement_events(con
 CREATE INDEX IF NOT EXISTS idx_events_event_ts ON public.engagement_events(event_ts);
 CREATE INDEX IF NOT EXISTS idx_events_user_id ON public.engagement_events(user_id);
 
--- Compliant initial data
+-- Données initiales conformes
 INSERT INTO public.content (slug, title, content_type, length_seconds) VALUES
     ('intro-streaming', 'Introduction au Streaming', 'video', 300),
     ('redis-guide', 'Guide Redis Complet', 'newsletter', 420),

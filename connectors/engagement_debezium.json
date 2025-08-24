@@ -9,16 +9,16 @@
         "database.user": "user",
         "database.password": "password",
         "database.dbname": "streaming_db",
-        "database.server.name": "pg",
+        "database.server.name": "pgmain",
         "table.include.list": "public.engagement_events",
-        "topic.prefix": "pg",
-        "transforms": "route",
-        "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
-        "transforms.route.regex": "([^.]+)\\.([^.]+)\\.([^.]+)",
-        "transforms.route.replacement": "$3",
         "key.converter": "org.apache.kafka.connect.json.JsonConverter",
         "value.converter": "org.apache.kafka.connect.json.JsonConverter",
         "key.converter.schemas.enable": "false",
-        "value.converter.schemas.enable": "false"
+        "value.converter.schemas.enable": "false",
+        "topic.prefix": "pgmain",
+        "transforms": "route",
+        "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
+        "transforms.route.regex": "([^.]+)\\.([^.]+)\\.([^.]+)",
+        "transforms.route.replacement": "$3"
     }
 }
