@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 External System Service - Webhook endpoint
-Simule un système externe qui reçoit les événements enrichis
+Simulates an external system that receives the enriched events
 """
 
 from flask import Flask, request, jsonify
@@ -11,14 +11,14 @@ import os
 
 app = Flask(__name__)
 
-# Simple in-memory storage pour demo
+# Simple in-memory storage for demo
 received_events = []
 MAX_EVENTS = 1000  # Keep last 1000 events
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
     """
-    Endpoint principal pour recevoir les événements du pipeline Flink
+    Main endpoint to receive events from the Flink pipeline
     """
     try:
         data = request.get_json()
