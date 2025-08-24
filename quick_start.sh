@@ -89,40 +89,36 @@ sleep 15
 
 wait_for_service "http://localhost:5001" "External System" 30
 
-step "Setting up Debezium CDC connector"
-# Create the simplified connector that works
+step "Setting up Debezium CDC connector (RegexRouter → engagement_events)"
+
+# 1) Delete any existing connector with the same name (idempotent)
+#    This makes the script safe to re-run multiple times.
+curl -s -X DELETE http://localhost:8083/connectors/engagement-simple >/dev/null 2>&1 || true
+curl -s -X DELETE http://localhost:8083/connectors/engagement-events-connector >/dev/null 2>&1 || true
+
+# 2) Create the Debezium PostgreSQL connector from our JSON configuration file.
+#    The JSON (connectors/engagement_debezium.json) already contains the RegexRouter transform,
+#    which renames the default Debezium topic (pg.public.engagement_events)
+#    into a clean topic called engagement_events (matching the consumer).
 curl -s -X POST http://localhost:8083/connectors \
   -H "Content-Type: application/json" \
-  -d '{
-    "name": "engagement-simple",
-    "config": {
-        "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
-        "plugin.name": "pgoutput",
-        "tasks.max": "1",
-        "database.hostname": "postgres",
-        "database.port": "5432",
-        "database.user": "user",
-        "database.password": "password",
-        "database.dbname": "streaming_db",
-        "database.server.name": "pg",
-        "table.include.list": "public.engagement_events",
-        "key.converter": "org.apache.kafka.connect.json.JsonConverter",
-        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
-        "key.converter.schemas.enable": "false",
-        "value.converter.schemas.enable": "false"
-    }
-}' > /dev/null
+  -d @connectors/engagement_debezium.json >/dev/null
 
+# 3) Wait for the connector to initialize
 sleep 10
 
-# Check the connector
-connector_status=$(curl -s http://localhost:8083/connectors/engagement-simple/status | jq -r '.connector.state' 2>/dev/null || echo "UNKNOWN")
+# 4) Check the connector status and print a clear message
+connector_status=$(curl -s http://localhost:8083/connectors/engagement-events-connector/status \
+  | jq -r '.connector.state' 2>/dev/null || echo "UNKNOWN")
 
 if [ "$connector_status" = "RUNNING" ]; then
-    echo -e "${GREEN}✅ Debezium connector running${NC}"
+  echo -e "${GREEN}✅ Debezium connector (engagement-events-connector) is running${NC}"
 else
-    echo -e "${YELLOW}⚠️  Connector status: $connector_status${NC}"
+  echo -e "${YELLOW}⚠️  Connector status: $connector_status${NC}"
+  # Show detailed status if available (useful for debugging)
+  curl -s http://localhost:8083/connectors/engagement-events-connector/status | jq 2>/dev/null || true
 fi
+
 
 step "Testing the pipeline"
 echo "📊 Inserting test event..."
