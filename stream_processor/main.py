@@ -220,9 +220,9 @@ class StreamProcessor:
             )
             print("✅ Connected to Kafka!")
             
-            # 🔧 Vérifier les topics disponibles
-            topics = consumer.list_consumer_group_offsets()
-            print(f"📋 Available topics: {list(topics.keys()) if topics else 'None yet'}")
+            
+            topics = consumer.topics()
+            print(f"📋 Available topics: {sorted(topics) if topics else 'None yet'}")
             
         except Exception as e:
             print(f"❌ Kafka connection failed: {e}")
