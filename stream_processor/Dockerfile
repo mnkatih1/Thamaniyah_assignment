@@ -1,26 +1,26 @@
-# stream_processor/Dockerfile - Version simple et rapide
+# stream_processor/Dockerfile
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Installer les dépendances système nécessaires
+#Install the required system dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         gcc \
         && rm -rf /var/lib/apt/lists/*
 
-# Installer les dépendances Python (beaucoup plus rapide)
+# Install the Python dependencies (much faster)
 RUN pip install --no-cache-dir \
     kafka-python==2.0.2 \
     redis==4.5.5 \
     requests==2.31.0 \
     psycopg2-binary==2.9.7
 
-# Copier le code
+# Copy the code
 COPY main.py /app/
 
-# Variables d'environnement
+# Environment variables
 ENV PYTHONUNBUFFERED=1
 
-# Commande par défaut
+# Default command
 CMD ["python", "main.py"]

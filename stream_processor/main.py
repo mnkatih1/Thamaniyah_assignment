@@ -24,7 +24,7 @@ class ContentLookup:
         self._conn = None
         self._cache: Dict[str, Dict[str, Any]] = {}
         self._lock = threading.Lock()
-        print("�� ContentLookup initialized")
+        print("🔍 ContentLookup initialized")
 
     def _connect(self):
         max_retries = 3
@@ -78,14 +78,14 @@ class StreamProcessor:
 
     def process_message(self, raw_message: str) -> Optional[Dict[str, Any]]:
         try:
-            # Parse message Debezium complet
+            # Parse complete Debezium message
             msg = json.loads(raw_message)
             
             # Skip deletes
             if msg.get("op") == "d":
                 return None
                 
-            # Extraire depuis 'after' (nouveau format Debezium)
+            # Extract from 'after' (new Debezium format)
             after = msg.get("after", {})
             
             event_id = after.get("id")
@@ -99,12 +99,12 @@ class StreamProcessor:
             if not (event_id and content_id):
                 return None
 
-            # Enrichissement
+            # Enrichment
             meta = self.content_lookup.get(str(content_id))
             content_type = meta["content_type"] if meta else None
             length_seconds = meta["length_seconds"] if meta else None
 
-            # Calculs
+            # Calculations
             engagement_seconds = None
             engagement_pct = None
             if duration_ms and duration_ms > 0:
@@ -170,7 +170,7 @@ class StreamProcessor:
                     content_id = enriched_event["content_id"]
                     engagement_seconds = enriched_event["engagement_seconds"]
                     
-                    # Envoyer vers destinations
+                    # Send to destinations
                     if engagement_seconds and engagement_seconds > 0:
                         self.send_to_redis(str(content_id), engagement_seconds)
                     

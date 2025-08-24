@@ -1,11 +1,11 @@
 #!/bin/bash
-# startup.sh - Démarrage ordonné des services
+# startup.sh - Ordered service startup
 
 set -e
 
 echo "🚀 Starting services in proper order..."
 
-# Couleurs pour les logs
+# Colors for logs
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
@@ -50,36 +50,36 @@ wait_for_service() {
     return 1
 }
 
-# Nettoyer complètement
+# Complete cleanup
 step "Cleaning up previous deployment"
 docker-compose down -v 2>/dev/null || true
 docker system prune -f > /dev/null 2>&1
 
-# Étape 1: PostgreSQL et Redis (infrastructures de base)
+# Step 1: PostgreSQL and Redis (base infrastructure)
 step "1/6 Starting PostgreSQL and Redis"
 docker-compose up -d postgres redis
 sleep 10
 
-# Vérifier PostgreSQL
+# Check PostgreSQL
 until docker exec postgres pg_isready -U user > /dev/null 2>&1; do
     echo -n "."
     sleep 2
 done
 echo -e "${GREEN}✅ PostgreSQL ready!${NC}"
 
-# Vérifier Redis
+# Check Redis
 until docker exec redis redis-cli ping > /dev/null 2>&1; do
     echo -n "."
     sleep 2
 done
 echo -e "${GREEN}✅ Redis ready!${NC}"
 
-# Étape 2: Zookeeper
+# Step 2: Zookeeper
 step "2/6 Starting Zookeeper"
 docker-compose up -d zookeeper
 sleep 15
 
-# Attendre que Zookeeper soit complètement prêt
+# Wait for Zookeeper to be completely ready
 echo -e "${YELLOW}⏳ Waiting for Zookeeper...${NC}"
 until docker exec zookeeper bash -c 'echo ruok | nc localhost 2181' 2>/dev/null | grep -q imok; do
     echo -n "."
@@ -87,12 +87,12 @@ until docker exec zookeeper bash -c 'echo ruok | nc localhost 2181' 2>/dev/null 
 done
 echo -e "${GREEN}✅ Zookeeper ready!${NC}"
 
-# Étape 3: Kafka (attend que Zookeeper soit stable)
+# Step 3: Kafka (waits for Zookeeper to be stable)
 step "3/6 Starting Kafka"
 docker-compose up -d kafka
 sleep 30
 
-# Vérifier Kafka avec plusieurs tentatives
+# Check Kafka with multiple attempts
 echo -e "${YELLOW}⏳ Waiting for Kafka (this takes time)...${NC}"
 kafka_ready=false
 for attempt in {1..10}; do
@@ -113,26 +113,26 @@ else
     exit 1
 fi
 
-# Étape 4: Kafka Connect (le plus long)
+# Step 4: Kafka Connect (the longest)
 step "4/6 Starting Kafka Connect (downloads Debezium plugin)"
 docker-compose up -d kafka-connect
 echo -e "${YELLOW}⏳ This will take 2-3 minutes for plugin download...${NC}"
 
 wait_for_service "http://localhost:8083" "Kafka Connect" 180
 
-# Étape 5: Services applicatifs
+# Step 5: Application services
 step "5/6 Starting application services"
 docker-compose up -d external-system data-generator
 sleep 10
 
 wait_for_service "http://localhost:5001" "External System" 30
 
-# Étape 6: Stream processor et setup
+# Step 6: Stream processor and setup
 step "6/6 Starting stream processor and setup"
 docker-compose up -d stream-processor setup-debezium
 sleep 15
 
-# Vérification finale
+# Final verification
 step "Final verification"
 echo "📊 Services status:"
 docker-compose ps

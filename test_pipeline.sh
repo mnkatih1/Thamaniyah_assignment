@@ -1,11 +1,11 @@
 #!/bin/bash
-# test_pipeline.sh - Tests automatisés complets du pipeline
+# test_pipeline.sh - Complete automated pipeline tests
 
 set -e
 echo "🧪 Testing Complete Streaming Pipeline"
 echo "======================================"
 
-# Couleurs
+# Colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
@@ -28,7 +28,7 @@ error() {
     echo -e "${RED}❌ $1${NC}"
 }
 
-# Variables de test
+# Test variables
 TESTS_PASSED=0
 TESTS_FAILED=0
 
@@ -78,7 +78,7 @@ test_step "2. End-to-End Pipeline Test"
 echo "📊 Inserting test event..."
 test_event_device="pipeline-test-$(date +%s)"
 
-# Insérer un événement avec une durée spécifique pour le test
+# Insert an event with specific duration for the test
 insert_result=$(docker exec postgres psql -U user -d streaming_db -c "
 INSERT INTO engagement_events (user_id, content_id, event_type, event_ts, duration_ms, device) 
 SELECT uuid_generate_v4(), id, 'finish', NOW(), 9000, '$test_event_device' 
@@ -95,7 +95,7 @@ sleep 8
 
 test_step "3. Latency Test (< 5 seconds requirement)"
 
-# Test de latence
+# Latency test
 start_time=$(date +%s)
 test_device="latency-test-$(date +%s)"
 
@@ -104,7 +104,7 @@ INSERT INTO engagement_events (user_id, content_id, event_type, event_ts, durati
 SELECT uuid_generate_v4(), id, 'play', NOW(), 8500, '$test_device' 
 FROM content LIMIT 1;" > /dev/null 2>&1
 
-# Attendre et vérifier Redis
+# Wait and check Redis
 for i in {1..10}; do
     redis_check=$(docker exec redis redis-cli ZREVRANGE engagement:10min 0 10 WITHSCORES 2>/dev/null | wc -l)
     if [ "$redis_check" -gt 0 ]; then
@@ -123,7 +123,7 @@ done
 
 test_step "4. Multi-Sink Verification"
 
-# Vérifier Redis (Destination 1)
+# Check Redis (Destination 1)
 redis_data=$(docker exec redis redis-cli ZREVRANGE engagement:10min 0 3 WITHSCORES 2>/dev/null)
 if [ -n "$redis_data" ] && [ "$redis_data" != "(empty array)" ]; then
     redis_entries=$(echo "$redis_data" | wc -l)
@@ -137,7 +137,7 @@ else
     fail_test "Redis sink: No engagement data found"
 fi
 
-# Vérifier External System (Destination 2)
+# Check External System (Destination 2)
 external_stats=$(curl -s http://localhost:5001/stats 2>/dev/null)
 if [ $? -eq 0 ] && echo "$external_stats" | grep -q "total_events"; then
     total_events=$(echo "$external_stats" | grep -o '"total_events":[0-9]*' | grep -o '[0-9]*')
@@ -153,7 +153,7 @@ fi
 
 test_step "5. Data Transformation Verification"
 
-# Vérifier qu'on peut récupérer un événement avec enrichissement
+# Check that we can retrieve an event with enrichment
 recent_events=$(curl -s http://localhost:5001/events?limit=1 2>/dev/null)
 if [ $? -eq 0 ] && echo "$recent_events" | grep -q "content_type"; then
     pass_test "Data enrichment: Events contain enriched fields (content_type)"
@@ -161,7 +161,7 @@ else
     warning "Data enrichment: Cannot verify enrichment (check external system logs)"
 fi
 
-# Résumé final
+# Final summary
 test_step "Test Summary"
 
 echo ""

@@ -112,7 +112,7 @@ services:
         python data_generator.py
       "
 
-  # REMPLACÉ: flink-py par stream-processor (Python simple)
+  
   stream-processor:
     build:
       context: ./stream_processor
@@ -134,7 +134,7 @@ services:
       EXTERNAL_URL: http://external-system:5001/webhook
     restart: on-failure
 
-  # Service pour configurer automatiquement Debezium
+  
   setup-debezium:
     image: curlimages/curl:latest
     container_name: setup-debezium

@@ -11,7 +11,7 @@ CONNECT_URL="http://localhost:8083"
 CONNECTOR_NAME="engagement-events-connector"
 CONFIG_FILE="connectors/engagement_debezium.json"
 
-# Fonction pour attendre qu'un service soit prêt
+# Function to wait until a service is ready
 wait_for_service() {
     local url=$1
     local service_name=$2
@@ -24,7 +24,7 @@ wait_for_service() {
     echo "✅ $service_name is ready!"
 }
 
-# Fonction pour attendre que le plugin Debezium soit disponible
+# Function to wait until a Debezium plugin is ready
 wait_for_debezium_plugin() {
     echo "⏳ Waiting for Debezium PostgreSQL plugin..."
     
@@ -35,7 +35,7 @@ wait_for_debezium_plugin() {
     echo "✅ Debezium PostgreSQL plugin is available!"
 }
 
-# Vérifier que le fichier de configuration existe
+# Check that the configuration file exists
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "❌ Error: Configuration file $CONFIG_FILE not found!"
     echo "Please create the file with the Debezium connector configuration."
@@ -46,14 +46,14 @@ fi
 wait_for_service "$CONNECT_URL" "Kafka Connect"
 wait_for_debezium_plugin
 
-# Vérifier si le connecteur existe déjà
+# Wait until the services are ready
 if curl -s "$CONNECT_URL/connectors/$CONNECTOR_NAME" > /dev/null 2>&1; then
     echo "⚠️  Connector $CONNECTOR_NAME already exists. Deleting it first..."
     curl -X DELETE "$CONNECT_URL/connectors/$CONNECTOR_NAME"
     sleep 2
 fi
 
-# Créer le connecteur
+# Create the connector
 echo "📡 Creating Debezium PostgreSQL connector..."
 response=$(curl -s -X POST \
   "$CONNECT_URL/connectors" \
@@ -68,11 +68,11 @@ fi
 
 echo "✅ Connector created successfully!"
 
-# Attendre un peu pour que le connecteur s'initialise
+# Wait a bit for the connector to initialize
 echo "⏳ Waiting for connector to initialize..."
 sleep 10
 
-# Vérifier le statut du connecteur
+# Check the status of the connector
 echo "📊 Checking connector status..."
 status_response=$(curl -s "$CONNECT_URL/connectors/$CONNECTOR_NAME/status")
 
@@ -82,18 +82,18 @@ else
     echo "$status_response"
 fi
 
-# Vérifier que le connecteur est en état RUNNING
+# Check that the connector is in RUNNING state
 if echo "$status_response" | grep -q '"state":"RUNNING"'; then
     echo "✅ Connector is running successfully!"
 else
     echo "⚠️  Connector may not be running properly. Check the status above."
 fi
 
-# Afficher les topics Kafka créés
+# Display the Kafka topics that were created
 echo "📋 Available Kafka topics:"
 docker exec kafka kafka-topics --list --bootstrap-server localhost:29092 2>/dev/null | grep -E "(pg\.|engagement)" || echo "   No engagement topics found yet. They will be created when data changes occur."
 
-# Instructions finales
+# Final instructions
 echo ""
 echo "🎉 Setup complete!"
 echo ""

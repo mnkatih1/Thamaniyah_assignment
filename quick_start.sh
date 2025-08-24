@@ -1,12 +1,12 @@
 #!/bin/bash
-# quick_start.sh - Démarrage automatique du pipeline pour évaluateurs
+# quick_start.sh - Automatic pipeline startup for evaluators
 
 set -e
 
 echo "🚀 Starting Real-time Streaming Pipeline"
 echo "=========================================="
 
-# Couleurs
+# Colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
@@ -34,23 +34,23 @@ wait_for_service() {
     return 1
 }
 
-# Nettoyer les déploiements précédents
+# Clean previous deployments
 step "Cleaning previous deployment"
 docker-compose down -v 2>/dev/null || true
 
-# Démarrage ordonné des services
+# Ordered startup of services
 step "Starting infrastructure services (PostgreSQL, Redis, Zookeeper)"
 docker-compose up -d postgres redis zookeeper
 sleep 20
 
-# Vérifier PostgreSQL
+# Check PostgreSQL
 until docker exec postgres pg_isready -U user > /dev/null 2>&1; do
     echo -n "."
     sleep 2
 done
 echo -e "${GREEN}✅ PostgreSQL ready${NC}"
 
-# Vérifier Redis  
+# Check Redis  
 until docker exec redis redis-cli ping > /dev/null 2>&1; do
     echo -n "."
     sleep 2
@@ -61,7 +61,7 @@ step "Starting Kafka (this takes time)"
 docker-compose up -d kafka
 sleep 30
 
-# Vérifier Kafka avec plusieurs tentatives
+# Check Kafka with multiple attempts
 kafka_ready=false
 for attempt in {1..8}; do
     if docker exec kafka kafka-topics --bootstrap-server localhost:29092 --list > /dev/null 2>&1; then
@@ -90,7 +90,7 @@ sleep 15
 wait_for_service "http://localhost:5001" "External System" 30
 
 step "Setting up Debezium CDC connector"
-# Créer le connecteur simplifié qui fonctionne
+# Create the simplified connector that works
 curl -s -X POST http://localhost:8083/connectors \
   -H "Content-Type: application/json" \
   -d '{
@@ -115,7 +115,7 @@ curl -s -X POST http://localhost:8083/connectors \
 
 sleep 10
 
-# Vérifier le connecteur
+# Check the connector
 connector_status=$(curl -s http://localhost:8083/connectors/engagement-simple/status | jq -r '.connector.state' 2>/dev/null || echo "UNKNOWN")
 
 if [ "$connector_status" = "RUNNING" ]; then
@@ -127,7 +127,7 @@ fi
 step "Testing the pipeline"
 echo "📊 Inserting test event..."
 
-# Insérer un événement de test
+# Insert a test event
 docker exec postgres psql -U user -d streaming_db -c "
 INSERT INTO engagement_events (user_id, content_id, event_type, event_ts, duration_ms, device) 
 SELECT uuid_generate_v4(), id, 'play', NOW(), 7500, 'quick-start-test' 
@@ -135,7 +135,7 @@ FROM content LIMIT 1;" > /dev/null 2>&1
 
 sleep 5
 
-# Vérifier les résultats
+# Check the results
 echo "🔍 Checking results..."
 
 # Redis
