@@ -216,7 +216,7 @@ class StreamProcessor:
                 auto_offset_reset='earliest',
                 enable_auto_commit=True,
                 auto_commit_interval_ms=1000,
-                consumer_timeout_ms=10000  # 🔧 Timeout pour les tests
+                consumer_timeout_ms=1000000  
             )
             print("✅ Connected to Kafka!")
             
